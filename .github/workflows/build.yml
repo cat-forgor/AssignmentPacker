@@ -1,0 +1,332 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: audit
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: ap.exe
+            output: ap-windows-x64.exe
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: ap
+            output: ap-linux-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: ap
+            output: ap-macos-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - run: cargo test --target ${{ matrix.target }}
+
+      - run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary
+        shell: bash
+        run: cp "target/${{ matrix.target }}/release/${{ matrix.artifact }}" "${{ matrix.output }}"
+
+      - name: Build .deb package
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          chmod +x deb/build-deb.sh
+          cd deb && ./build-deb.sh "$VERSION" "../${{ matrix.output }}"
+
+      - name: Build MSI installer
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          dotnet tool install --global wix
+          wix build wix/main.wxs -d Version="$VERSION" -d Binary="${{ matrix.output }}" -o ap-windows-x64.msi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: ${{ matrix.output }}
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        with:
+          name: ap-windows-x64.msi
+          path: ap-windows-x64.msi
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        with:
+          name: ap-deb
+          path: deb/*.deb
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
+      - name: Read version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute hashes
+        id: hashes
+        run: |
+          echo "windows=$(sha256sum artifacts/ap-windows-x64.exe | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux=$(sha256sum artifacts/ap-linux-x64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "macos=$(sha256sum artifacts/ap-macos-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete existing latest tag so it moves to HEAD
+          git tag -d latest 2>/dev/null || true
+          git push origin :refs/tags/latest 2>/dev/null || true
+          git tag latest
+          git push origin latest
+
+          # Delete old release, create fresh one with new assets
+          gh release delete latest --yes 2>/dev/null || true
+          gh release create latest \
+            --title "Latest Build" \
+            --notes "Rolling build from the latest commit on \`main\`.\n\nUpdated on every push, always has the newest binaries." \
+            --prerelease \
+            artifacts/*
+
+      - name: Create versioned release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --generate-notes \
+            --latest \
+            artifacts/*
+
+      - name: Publish to crates.io
+        if: steps.version.outputs.exists == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          rm -rf artifacts
+          cargo publish
+
+      - name: Update Scoop manifest
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          HASH="${{ steps.hashes.outputs.windows }}"
+
+          cat > bucket/ap.json <<EOF
+          {
+              "version": "${VERSION}",
+              "description": "Packs C assignment submissions for Canvas upload",
+              "homepage": "https://github.com/${REPO}",
+              "license": "MIT",
+              "architecture": {
+                  "64bit": {
+                      "url": "https://github.com/${REPO}/releases/download/${TAG}/ap-windows-x64.exe",
+                      "hash": "${HASH}"
+                  }
+              },
+              "bin": [["ap-windows-x64.exe", "ap"]],
+              "checkver": "github",
+              "autoupdate": {
+                  "architecture": {
+                      "64bit": {
+                          "url": "https://github.com/${REPO}/releases/download/v\$version/ap-windows-x64.exe"
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Update Homebrew formula
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          LINUX_HASH="${{ steps.hashes.outputs.linux }}"
+          MACOS_HASH="${{ steps.hashes.outputs.macos }}"
+          REPO="cat-forgor/AssignmentPacker"
+
+          cat > Formula/ap.rb <<'RUBY'
+          class Ap < Formula
+            desc "Packs C assignment submissions for Canvas upload"
+            homepage "https://github.com/REPO_PLACEHOLDER"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/REPO_PLACEHOLDER/releases/download/vVERSION_PLACEHOLDER/ap-macos-arm64"
+                sha256 "MACOS_HASH_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.intel?
+                url "https://github.com/REPO_PLACEHOLDER/releases/download/vVERSION_PLACEHOLDER/ap-linux-x64"
+                sha256 "LINUX_HASH_PLACEHOLDER"
+              end
+            end
+
+            def install
+              binary = Dir["ap-*"].first || "ap"
+              mv binary, "ap"
+              bin.install "ap"
+            end
+
+            test do
+              assert_match "assignment_packer", shell_output("#{bin}/ap --version")
+            end
+          end
+          RUBY
+
+          sed -i "s/REPO_PLACEHOLDER/${REPO//\//\\/}/g" Formula/ap.rb
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Formula/ap.rb
+          sed -i "s/MACOS_HASH_PLACEHOLDER/${MACOS_HASH}/g" Formula/ap.rb
+          sed -i "s/LINUX_HASH_PLACEHOLDER/${LINUX_HASH}/g" Formula/ap.rb
+
+      - name: Update Chocolatey package
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          HASH="${{ steps.hashes.outputs.windows }}"
+          sed -i "s/<version>.*<\/version>/<version>${VERSION}<\/version>/" choco/ap.nuspec
+          sed -i "s/checksum64    = .*/checksum64    = '${HASH}'/" choco/tools/chocolateyinstall.ps1
+
+      - name: Publish to Chocolatey
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if [ -z "$CHOCO_API_KEY" ]; then
+            echo "CHOCOLATEY_API_KEY not set, skipping"
+            exit 0
+          fi
+          sudo apt-get update && sudo apt-get install -y mono-complete
+          wget -qO- https://community.chocolatey.org/install.sh | bash
+          cd choco
+          choco pack
+          choco push "ap.${VERSION}.nupkg" --source https://push.chocolatey.org/ --api-key "$CHOCO_API_KEY"
+
+      - name: Submit to WinGet
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: cat-forgor.ap
+          version: ${{ steps.version.outputs.version }}
+          installers-regex: ap-windows-x64\.exe$
+          token: ${{ secrets.WINGET_PAT }}
+
+      - name: Update AUR package
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          HASH: ${{ steps.hashes.outputs.linux }}
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_KEY" ]; then
+            echo "AUR_SSH_KEY not set, skipping"
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          cat >> ~/.ssh/config <<SSH
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            StrictHostKeyChecking no
+          SSH
+
+          git clone ssh://aur@aur.archlinux.org/ap-bin.git aur-repo
+          cd aur-repo
+
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s/sha256sums=.*/sha256sums=('${HASH}')/" PKGBUILD
+          sed -i "s|source=.*|source=(\"https://github.com/cat-forgor/AssignmentPacker/releases/download/v\${pkgver}/ap-linux-x64\")|" PKGBUILD
+
+          cat > .SRCINFO <<SRCINFO
+          pkgbase = ap-bin
+          	pkgdesc = CLI tool that packs C assignment submissions for Canvas upload
+          	pkgver = ${VERSION}
+          	pkgrel = 1
+          	url = https://github.com/cat-forgor/AssignmentPacker
+          	arch = x86_64
+          	license = MIT
+          	provides = ap
+          	conflicts = ap
+          	source = https://github.com/cat-forgor/AssignmentPacker/releases/download/v${VERSION}/ap-linux-x64
+          	sha256sums = ${HASH}
+
+          pkgname = ap-bin
+          SRCINFO
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git diff --cached --quiet && echo "No AUR changes" && exit 0
+          git commit -m "Update to ${VERSION}"
+          git push
+
+      - name: Push manifest updates
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/ap.json Formula/ap.rb choco/ap.nuspec choco/tools/chocolateyinstall.ps1
+          git diff --cached --quiet && echo "No manifest changes" && exit 0
+          git commit -m "chore: update package manifests for ${{ steps.version.outputs.tag }}"
+          git push

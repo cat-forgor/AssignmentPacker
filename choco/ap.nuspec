@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>ap</id>
+    <version>0.1.0</version>
+    <title>ap - Assignment Packer</title>
+    <authors>cat-forgor</authors>
+    <projectUrl>https://github.com/cat-forgor/AssignmentPacker</projectUrl>
+    <licenseUrl>https://github.com/cat-forgor/AssignmentPacker/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>CLI tool that packs C assignment submissions for Canvas upload.</description>
+    <tags>cli assignment canvas c submission zip</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

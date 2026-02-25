@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+    Name="ap"
+    Manufacturer="cat-forgor"
+    Version="$(var.Version)"
+    UpgradeCode="e3a7c1d0-5b2f-4a8e-9c6d-1f0e2b3a4c5d">
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of ap is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ap">
+        <Component Id="ApExe" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890" Bitness="always64">
+          <File Id="ApExeFile" Source="$(var.Binary)" KeyPath="yes" />
+        </Component>
+        <Component Id="PathEntry" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901" Bitness="always64">
+          <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]"
+                       Permanent="no" Part="last" Action="set" System="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="ap" Level="1">
+      <ComponentRef Id="ApExe" />
+      <ComponentRef Id="PathEntry" />
+    </Feature>
+
+  </Package>
+
+</Wix>
