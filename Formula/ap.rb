@@ -7,14 +7,14 @@ class Ap < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v#{version}/ap-macos-arm64"
-      sha256 "PLACEHOLDER"
+      sha256 "383448a3022dd75055564dd0773b789d3fa90e43f0e152aece9af552c5781d32"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v#{version}/ap-linux-x64"
-      sha256 "PLACEHOLDER"
+      sha256 "340655f5fb337fd998d199419da212dfe5883b95ec0c6ecb61c2b14ab3b1591b"
     end
   end
 
