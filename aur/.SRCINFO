@@ -8,6 +8,6 @@ pkgbase = ap-bin
 	provides = ap
 	conflicts = ap
 	source = https://github.com/cat-forgor/AssignmentPacker/releases/download/v0.1.0/ap-linux-x64
-	sha256sums = 20513256598ca73c327cd28c9c1fb2f7ee361fbe2e045b3f3116b6362c9f4b7e
+	sha256sums = 340655f5fb337fd998d199419da212dfe5883b95ec0c6ecb61c2b14ab3b1591b
 
 pkgname = ap-bin
