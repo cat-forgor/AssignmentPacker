@@ -73,9 +73,9 @@ pub fn build_rtf(opts: &RtfOptions<'_>) -> Result<Vec<u8>> {
     r.push_str("\\par}\n");
 
     if *watermark {
-        r.push_str("\\pard\\qc\\f0\\fs16\\i ");
+        r.push_str("\\pard\\qc\\f0\\fs16\\i {\\field{\\*\\fldinst{HYPERLINK \"https://github.com/cat-forgor/AssignmentPacker\"}}{\\fldrslt ");
         rtf_escape(&mut r, WATERMARK, Mode::Inline);
-        r.push_str(" \\i0\\par\n");
+        r.push_str("}}\\i0\\par\n");
     }
     r.push_str("}\n");
 

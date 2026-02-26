@@ -36,6 +36,13 @@ choco install ap
 winget install cat-forgor.ap
 ```
 
+### Nix (NixOS / any platform)
+
+```sh
+nix run github:cat-forgor/AssignmentPacker              # try without installing
+nix profile install github:cat-forgor/AssignmentPacker  # install to profile
+```
+
 ### AUR (Arch Linux)
 
 ```sh
@@ -99,18 +106,19 @@ ap -a 7
 
 ### Flags
 
-| Flag            | Short | Description                                                              |
-| --------------- | ----- | ------------------------------------------------------------------------ |
-| `--assignment`  | `-a`  | Assignment number or label (e.g. `7` or `Assignment7`)                   |
-| `--name`        | `-n`  | Student name                                                             |
-| `--id`          | `-i`  | Student ID                                                               |
-| `--c-file`      | `-c`  | Path to `.c` file (auto-detected if only one in cwd)                     |
-| `--doc-file`    | `-d`  | Path to an existing `.doc` file                                          |
-| `--auto-doc`    |       | Generate `.doc` automatically                                            |
-| `--run-command` |       | Custom shell command to run the program                                  |
-| `--theme`       | `-t`  | Screenshot theme (`default`, `light`, `dracula`, `monokai`, `solarized`) |
-| `--output-dir`  | `-o`  | Output directory (defaults to `.`)                                       |
-| `--force`       | `-f`  | Overwrite existing output                                                |
+| Flag             | Short | Description                                                              |
+| ---------------- | ----- | ------------------------------------------------------------------------ |
+| `--assignment`   | `-a`  | Assignment number or label (e.g. `7` or `Assignment7`)                   |
+| `--name`         | `-n`  | Student name                                                             |
+| `--id`           | `-i`  | Student ID                                                               |
+| `--c-file`       | `-c`  | Path to `.c` file (auto-detected if only one in cwd)                     |
+| `--doc-file`     | `-d`  | Path to an existing `.doc` file                                          |
+| `--auto-doc`     |       | Generate `.doc` automatically                                            |
+| `--run-command`  |       | Custom shell command to run the program                                  |
+| `--theme`        | `-t`  | Screenshot theme (`default`, `light`, `dracula`, `monokai`, `solarized`) |
+| `--output-dir`   | `-o`  | Output directory (defaults to `.`)                                       |
+| `--no-watermark` |       | Turns off watermark at the bottom of the doc                             |
+| `--force`        | `-f`  | Overwrite existing output                                                |
 
 ## Config
 
