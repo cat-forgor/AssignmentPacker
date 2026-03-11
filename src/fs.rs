@@ -195,8 +195,6 @@ pub fn file_name(path: &Path) -> Result<&str> {
         .ok_or_else(|| Error::Validation(format!("invalid filename: '{}'", path.display())))
 }
 
-/// Returns true only if both paths exist and resolve to the same file.
-/// Returns false if either path does not exist (safe for pre-copy checks).
 pub fn paths_equal(a: &Path, b: &Path) -> bool {
     match (fs::canonicalize(a), fs::canonicalize(b)) {
         (Ok(ca), Ok(cb)) => ca == cb,

@@ -3,6 +3,7 @@ use crate::error::{Error, Result, io_err};
 use image::Rgb;
 use serde::Deserialize;
 use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -157,17 +158,7 @@ fn parse_hex(s: &str) -> Result<Rgb<u8>> {
 }
 
 fn list_available(themes_dir: &std::path::Path) -> String {
-    let Ok(walker) = fs::read_dir(themes_dir) else {
-        return "(none, create themes in ~/.config/assignment_packer/themes/)".into();
-    };
-
-    let mut names = Vec::new();
-    collect_themes(themes_dir, themes_dir, &mut names);
-    // Also grab top-level entries if read_dir succeeded but walkdir missed them
-    drop(walker);
-
-    names.sort();
-    names.dedup();
+    let names = custom_theme_names(themes_dir);
     if names.is_empty() {
         "(none, create themes in ~/.config/assignment_packer/themes/)".into()
     } else {
@@ -175,7 +166,7 @@ fn list_available(themes_dir: &std::path::Path) -> String {
     }
 }
 
-fn collect_themes(base: &std::path::Path, dir: &std::path::Path, names: &mut Vec<String>) {
+fn collect_themes(base: &Path, dir: &Path, names: &mut Vec<String>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -193,6 +184,39 @@ fn collect_themes(base: &std::path::Path, dir: &std::path::Path, names: &mut Vec
             }
         }
     }
+}
+
+fn custom_theme_names(themes_dir: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_themes(themes_dir, themes_dir, &mut names);
+    names.sort();
+    names.dedup();
+    names
+}
+
+const BUILTIN_NAMES: &[&str] = &["default", "light", "dracula", "monokai", "solarized"];
+
+pub fn run_list() -> Result<()> {
+    println!("Built-in:");
+    println!("  {}", BUILTIN_NAMES.join("  "));
+    println!();
+
+    let themes_dir = config::config_path()?
+        .parent()
+        .map(|p| p.join("themes"))
+        .ok_or_else(|| Error::Validation("can't determine themes directory".into()))?;
+
+    println!("Custom:");
+    let custom = custom_theme_names(&themes_dir);
+    if custom.is_empty() {
+        println!("  (none)");
+    } else {
+        for name in custom {
+            println!("  {name}");
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

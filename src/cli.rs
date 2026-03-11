@@ -6,11 +6,12 @@ use std::path::PathBuf;
     version,
     about = "Packs C assignment submissions for Canvas upload.",
     after_help = "\x1b[1mExamples:\x1b[0m
-  ap -a 7 -n JoeBloggs -i 123456789 -c main.c --auto-doc
-  ap -a 7 -n JoeBloggs -i 123456789 -c main.c -d Assignment7_JoeBloggs_123456789.doc
-  ap -a 7 -c main.c --auto-doc       # uses saved name/id from config
-  ap init                            # interactive first-time setup
-  ap config show                     # view saved defaults"
+  ap init                              # interactive first-time setup
+  ap -a 7                              # use saved defaults + auto-detect .c file
+  ap -a 7 --input \"5\\nhello\"         # non-interactive stdin
+  ap themes                            # list built-in/custom themes
+  ap update                            # check for latest release
+  ap config show                       # view saved defaults"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -49,6 +50,18 @@ pub struct Cli {
     pub run_command: Option<String>,
 
     #[arg(
+        long = "input",
+        help = "Input to pipe to stdin (use \\n for newlines, e.g. \"5\\nhello\")"
+    )]
+    pub input: Option<String>,
+
+    #[arg(
+        long = "timeout",
+        help = "Timeout in seconds for program execution (default: 30, range: 5-300)"
+    )]
+    pub timeout: Option<u64>,
+
+    #[arg(
         long = "run-display-template",
         help = "Template for the displayed run path in evidence"
     )]
@@ -82,6 +95,8 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<ConfigCommand>,
     },
+    Themes,
+    Update,
 }
 
 #[derive(Debug, Subcommand)]
@@ -112,6 +127,15 @@ pub struct ConfigSetArgs {
 
     #[arg(long = "clear-run-command", action = ArgAction::SetTrue)]
     pub clear_run_command: bool,
+
+    #[arg(long = "input", conflicts_with = "clear_input")]
+    pub input: Option<String>,
+
+    #[arg(long = "clear-input", action = ArgAction::SetTrue)]
+    pub clear_input: bool,
+
+    #[arg(long = "timeout", help = "Default timeout in seconds (5-300)")]
+    pub timeout: Option<u64>,
 
     #[arg(
         long = "run-display-template",

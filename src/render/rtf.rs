@@ -1,5 +1,5 @@
-use crate::compiler::RunCapture;
 use crate::error::{Error, Result};
+use crate::terminal::RunCapture;
 use image::ImageFormat;
 
 const WATERMARK: &str = "Packed with assignmentpacker, created by Ian Fogarty (catforgor).";
@@ -37,6 +37,7 @@ pub fn build_rtf(opts: &RtfOptions<'_>) -> Result<Vec<u8>> {
     let mut r = String::with_capacity(screenshot_png.len() * 2 + code.len() + 4096);
     r.push_str("{\\rtf1\\ansi\\deff0\n");
     r.push_str("{\\fonttbl{\\f0 Calibri;}{\\f1 Consolas;}}\n");
+    r.push_str("{\\colortbl ;\\red0\\green0\\blue255;}\n");
     r.push_str("\\viewkind4\\uc1\\pard\\sa120\\sl240\\slmult1\\f0\\fs24\n");
 
     r.push_str("\\b ");
@@ -73,9 +74,9 @@ pub fn build_rtf(opts: &RtfOptions<'_>) -> Result<Vec<u8>> {
     r.push_str("\\par}\n");
 
     if *watermark {
-        r.push_str("\\pard\\qc\\f0\\fs16\\i {\\field{\\*\\fldinst{HYPERLINK \"https://github.com/cat-forgor/AssignmentPacker\"}}{\\fldrslt ");
+        r.push_str("\\pard\\qc\\f0\\fs16\\i {\\field{\\*\\fldinst{HYPERLINK \"https://github.com/cat-forgor/AssignmentPacker\"}}{\\fldrslt \\cf1\\ul ");
         rtf_escape(&mut r, WATERMARK, Mode::Inline);
-        r.push_str("}}\\i0\\par\n");
+        r.push_str("\\ul0\\cf0 }}\\i0\\par\n");
     }
     r.push_str("}\n");
 

@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::theme::Theme;
+use crate::render::theme::Theme;
 use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgb};
@@ -35,6 +35,13 @@ pub fn render_png(text: &str, theme: &Theme) -> Result<Vec<u8>> {
 
     let w = theme.padding * 2 + (max_cols as u32) * cell_w;
     let h = theme.padding * 2 + (lines.len() as u32) * cell_h;
+
+    const MAX_DIM: u32 = 8192;
+    if w > MAX_DIM || h > MAX_DIM {
+        return Err(Error::Image(format!(
+            "screenshot dimensions {w}x{h} exceed limit {MAX_DIM}x{MAX_DIM}, use a smaller font size or scale"
+        )));
+    }
 
     let mut img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_pixel(w, h, theme.bg);
 
@@ -102,8 +109,8 @@ fn stamp_glyph_ttf(
 }
 
 fn prepare_lines(text: &str) -> Vec<String> {
-    let norm = text.replace("\r\n", "\n").replace('\r', "\n");
-    let mut lines: Vec<String> = norm.lines().map(clamp_line).collect();
+    let processed = crate::terminal::emulate::process(text);
+    let mut lines: Vec<String> = processed.lines().map(clamp_line).collect();
     if lines.len() > MAX_LINES {
         lines.truncate(MAX_LINES);
         lines.push("(output truncated)".into());
@@ -112,14 +119,16 @@ fn prepare_lines(text: &str) -> Vec<String> {
 }
 
 fn clamp_line(line: &str) -> String {
-    let expanded = line.replace('\t', "    ");
     let mut out = String::new();
-    for (i, ch) in expanded.chars().enumerate() {
+    for (i, ch) in line.chars().enumerate() {
         if i >= MAX_COLS {
             out.push_str("...");
             break;
         }
-        if ch.is_ascii() && !ch.is_control() {
+        if ch.is_control() {
+            continue;
+        }
+        if ch.is_ascii() {
             out.push(ch);
         } else {
             out.push('?');
@@ -170,7 +179,7 @@ mod tests {
 
     #[test]
     fn clamp_tabs_expand() {
-        assert_eq!(clamp_line("\t"), "    ");
+        assert_eq!(clamp_line("a\tb"), "ab");
     }
 
     #[test]
@@ -194,5 +203,22 @@ mod tests {
         let png = render_png("hello world", &Theme::default()).unwrap();
         assert!(png.len() > 100);
         assert_eq!(&png[1..4], b"PNG");
+    }
+
+    #[test]
+    fn clamp_skips_control_chars() {
+        assert_eq!(clamp_line("a\x01b"), "ab");
+    }
+
+    #[test]
+    fn oversized_image_rejected() {
+        let theme = Theme {
+            scale: 10,
+            padding: 64,
+            ..Theme::default()
+        };
+        let long = ("x".repeat(120) + "\n").repeat(80);
+        let result = render_png(&long, &theme);
+        assert!(result.is_err());
     }
 }

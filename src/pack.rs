@@ -1,16 +1,31 @@
 use crate::cli::Cli;
-use crate::compiler;
+use crate::terminal;
 use crate::config;
 use crate::error::{Error, Result, io_err};
 use crate::fs as afs;
-use crate::rtf;
-use crate::screenshot;
-use crate::theme;
+use crate::render::rtf;
+use crate::render::screenshot;
+use crate::render::theme;
 use crate::ui;
 use crate::validate::{clean_name, parse_assignment, render_display_command};
 use owo_colors::OwoColorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
+
+struct CleanupGuard<'a> {
+    dir: &'a Path,
+    zip: &'a Path,
+    armed: bool,
+}
+
+impl Drop for CleanupGuard<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = fs::remove_dir_all(self.dir);
+            let _ = fs::remove_file(self.zip);
+        }
+    }
+}
 
 pub fn run_pack(cli: Cli) -> Result<()> {
     let cfg_path = config::config_path()?;
@@ -55,6 +70,12 @@ pub fn run_pack(cli: Cli) -> Result<()> {
             "--run-display-template requires --auto-doc".into(),
         ));
     }
+    if !auto_doc && cli.input.is_some() {
+        return Err(Error::Validation("--input requires --auto-doc".into()));
+    }
+    if !auto_doc && cli.timeout.is_some() {
+        return Err(Error::Validation("--timeout requires --auto-doc".into()));
+    }
     if !auto_doc && cli.theme.is_some() {
         return Err(Error::Validation("--theme requires --auto-doc".into()));
     }
@@ -91,6 +112,16 @@ pub fn run_pack(cli: Cli) -> Result<()> {
     } else {
         None
     };
+    let run_input = if auto_doc {
+        cli.input.or_else(|| cfg.input.clone())
+    } else {
+        None
+    };
+    let run_timeout = if auto_doc {
+        cli.timeout.or(cfg.timeout)
+    } else {
+        None
+    };
     let run_tpl = if auto_doc {
         cli.run_display_template
             .or_else(|| cfg.run_display_template.clone())
@@ -105,6 +136,12 @@ pub fn run_pack(cli: Cli) -> Result<()> {
     afs::prepare_output(&sub_dir, &zip_path, cli.force)?;
     fs::create_dir_all(&sub_dir)
         .map_err(|e| io_err(format!("creating {}", sub_dir.display()), e))?;
+
+    let mut guard = CleanupGuard {
+        dir: &sub_dir,
+        zip: &zip_path,
+        armed: true,
+    };
 
     ui::step("Copying files...");
     let c_name = afs::file_name(&c_file)?;
@@ -131,8 +168,13 @@ pub fn run_pack(cli: Cli) -> Result<()> {
             &c_file,
         )?;
 
-        ui::step("Compiling...");
-        let capture = compiler::capture_run(&c_file, run_command.as_deref(), &display_cmd)?;
+        let capture = terminal::capture_run(
+            &c_file,
+            run_command.as_deref(),
+            &display_cmd,
+            run_input.as_deref(),
+            run_timeout,
+        )?;
 
         ui::step("Rendering screenshot...");
         let code = afs::read_text_lossy(&c_file)?;
@@ -174,5 +216,6 @@ pub fn run_pack(cli: Cli) -> Result<()> {
         ui::success(&format!("Doc     {}", doc_dest.display()));
     }
 
+    guard.armed = false;
     Ok(())
 }
