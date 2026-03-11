@@ -238,29 +238,6 @@ jobs:
           sed -i "s/MACOS_HASH_PLACEHOLDER/${MACOS_HASH}/g" Formula/ap.rb
           sed -i "s/LINUX_HASH_PLACEHOLDER/${LINUX_HASH}/g" Formula/ap.rb
 
-      - name: Update Chocolatey package
-        if: steps.version.outputs.exists == 'false'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          HASH="${{ steps.hashes.outputs.windows }}"
-          sed -i "s/<version>.*<\/version>/<version>${VERSION}<\/version>/" choco/ap.nuspec
-          sed -i "s/checksum64    = .*/checksum64    = '${HASH}'/" choco/tools/chocolateyinstall.ps1
-
-      - name: Publish to Chocolatey
-        if: steps.version.outputs.exists == 'false'
-        continue-on-error: true
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
-        run: |
-          if [ -z "$CHOCO_API_KEY" ]; then
-            echo "CHOCOLATEY_API_KEY not set, skipping"
-            exit 0
-          fi
-          docker run --rm -v "$(pwd)/choco:/work" -w /work \
-            chocolatey/choco:latest \
-            bash -c "choco pack && choco push ap.${VERSION}.nupkg --source https://push.chocolatey.org/ --api-key ${CHOCO_API_KEY}"
-
       - name: Submit to WinGet
         if: steps.version.outputs.exists == 'false'
         continue-on-error: true
@@ -329,7 +306,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bucket/ap.json Formula/ap.rb choco/ap.nuspec choco/tools/chocolateyinstall.ps1
+          git add bucket/ap.json Formula/ap.rb
           git diff --cached --quiet && echo "No manifest changes" && exit 0
           git commit -m "chore: update package manifests for ${{ steps.version.outputs.tag }}"
           git push
