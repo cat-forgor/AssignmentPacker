@@ -24,12 +24,6 @@ scoop bucket add ap https://github.com/cat-forgor/AssignmentPacker
 scoop install ap
 ```
 
-### Chocolatey (Windows)
-
-```powershell
-choco install ap
-```
-
 ### WinGet (Windows)
 
 ```powershell
