@@ -17,7 +17,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build:
-    needs: audit
     strategy:
       matrix:
         include:
@@ -43,7 +42,11 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - run: cargo test --target ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - run: cargo test --release --target ${{ matrix.target }}
 
       - run: cargo build --release --target ${{ matrix.target }}
 
@@ -84,7 +87,7 @@ jobs:
           path: deb/*.deb
 
   publish:
-    needs: build
+    needs: [audit, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
