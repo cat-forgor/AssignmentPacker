@@ -1,4 +1,5 @@
 /target
 *.exe
-/.vscode 
+/.vscode
 /ap-bin
+Cargo.lock

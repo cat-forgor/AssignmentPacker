@@ -76,7 +76,7 @@ pub fn copy_non_binary_files(src: &Path, dst: &Path) -> Result<()> {
     for entry in entries {
         let entry = entry.map_err(|e| io_err("reading directory entry", e))?;
         let path = entry.path();
-        if !path.is_file() || is_binary_ext(&path) || is_dotfile(&path) {
+        if !path.is_file() || is_binary_ext(&path) {
             continue;
         }
         let name = file_name(&path)?;
