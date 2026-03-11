@@ -256,11 +256,9 @@ jobs:
             echo "CHOCOLATEY_API_KEY not set, skipping"
             exit 0
           fi
-          sudo apt-get update && sudo apt-get install -y mono-complete
-          wget -qO- https://community.chocolatey.org/install.sh | bash
-          cd choco
-          choco pack
-          choco push "ap.${VERSION}.nupkg" --source https://push.chocolatey.org/ --api-key "$CHOCO_API_KEY"
+          docker run --rm -v "$(pwd)/choco:/work" -w /work \
+            chocolatey/choco:latest \
+            bash -c "choco pack && choco push ap.${VERSION}.nupkg --source https://push.chocolatey.org/ --api-key ${CHOCO_API_KEY}"
 
       - name: Submit to WinGet
         if: steps.version.outputs.exists == 'false'
@@ -269,6 +267,7 @@ jobs:
         with:
           identifier: cat-forgor.ap
           version: ${{ steps.version.outputs.version }}
+          release-tag: ${{ steps.version.outputs.tag }}
           installers-regex: ap-windows-x64\.exe$
           token: ${{ secrets.WINGET_PAT }}
 
