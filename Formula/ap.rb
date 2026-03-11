@@ -1,20 +1,20 @@
 class Ap < Formula
   desc "Packs C assignment submissions for Canvas upload"
   homepage "https://github.com/cat-forgor/AssignmentPacker"
-  version "0.1.0"
+  version "1.0.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v#{version}/ap-macos-arm64"
-      sha256 "383448a3022dd75055564dd0773b789d3fa90e43f0e152aece9af552c5781d32"
+      url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v1.0.0/ap-macos-arm64"
+      sha256 "504a7250b0fa5d380fe33bdf87b33889d1540b93de03d8b98d0aa8fbb63670cd"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v#{version}/ap-linux-x64"
-      sha256 "340655f5fb337fd998d199419da212dfe5883b95ec0c6ecb61c2b14ab3b1591b"
+      url "https://github.com/cat-forgor/AssignmentPacker/releases/download/v1.0.0/ap-linux-x64"
+      sha256 "1e71c8e6cf1982b8f2a8c9df8d2825684820e0174a36d54ea3d3f4a7769ef34d"
     end
   end
 

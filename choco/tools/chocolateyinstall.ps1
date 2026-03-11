@@ -7,7 +7,7 @@ $packageArgs = @{
   packageName   = $env:ChocolateyPackageName
   fileFullPath  = Join-Path $toolsDir 'ap.exe'
   url64bit      = $url
-  checksum64    = '066f2d6ed466236f8071d703bc498fa17d484cf118e5adce8ea4bf810cde5138'
+  checksum64    = 'dc64e7d647c00c751fffa71025df91e3cd5ca92cd1b34295ac8d4b21d9b45338'
   checksumType64 = 'sha256'
 }
 
