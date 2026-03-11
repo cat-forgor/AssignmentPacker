@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>ap</id>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <title>ap - Assignment Packer</title>
     <authors>cat-forgor</authors>
     <projectUrl>https://github.com/cat-forgor/AssignmentPacker</projectUrl>

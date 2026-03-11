@@ -1,12 +1,12 @@
 {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Packs C assignment submissions for Canvas upload",
     "homepage": "https://github.com/cat-forgor/AssignmentPacker",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/cat-forgor/AssignmentPacker/releases/download/v1.0.1/ap-windows-x64.exe",
-            "hash": "40ba4bcf0403c9bdb1aa3e5ba84836436ec77e3a4fc2f2be008d7dbea9ce4f1a"
+            "url": "https://github.com/cat-forgor/AssignmentPacker/releases/download/v1.0.2/ap-windows-x64.exe",
+            "hash": "87af5a55dc18d976257015f544d8b3f80fc8bf6c27b84456b14439ee0465be0b"
         }
     },
     "bin": [["ap-windows-x64.exe", "ap"]],
